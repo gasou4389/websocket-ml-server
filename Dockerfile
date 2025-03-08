@@ -1,24 +1,19 @@
-# Use Python as the base image
+# Use Python base image
 FROM python:3.10
 
-# Install required system dependencies
-RUN apt-get update && apt-get install -y caddy
-
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
 # Copy application files
 COPY . .
 
-# Install Python dependencies
+# Install dependencies
 RUN pip install -r requirements.txt
 
-# Copy Caddyfile for automatic HTTPS setup
-COPY Caddyfile /etc/caddy/Caddyfile
+# Expose the correct port
+EXPOSE 8080
 
-# Expose necessary ports
-EXPOSE 443
+# Start WebSocket server
+CMD ["uvicorn", "websocket_ml_server:app", "--host", "0.0.0.0", "--port", "8080"]
 
-# Run Caddy as the primary process
-CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]
 
