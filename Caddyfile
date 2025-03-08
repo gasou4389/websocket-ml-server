@@ -1,0 +1,3 @@
+websocket-ml-server-production.up.railway.app {
+    reverse_proxy 127.0.0.1:8080
+}
