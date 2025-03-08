@@ -1,28 +1,35 @@
+import os
 import json
 import asyncio
 import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
 from contextlib import asynccontextmanager
-import os 
 
-# ✅ Import function to fetch predictions dynamically
-from process_predictions import get_structured_predictions  
+# ✅ Define path to JSON file
+json_file_path = os.path.join(os.path.dirname(__file__), "predictions.json")
 
 logging.basicConfig(level=logging.DEBUG)
-
 clients = set()
+
+def load_predictions():
+    """Load predictions from JSON file."""
+    try:
+        with open(json_file_path, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logging.error("❌ Predictions JSON file not found.")
+        return []
 
 async def send_live_nba_data():
     while True:
         if clients:
-            logging.debug("🔥 Fetching latest predictions from Excel...")
+            logging.debug("🔥 Fetching latest predictions from JSON...")
+            structured_predictions = load_predictions()
 
-            # ✅ Call the function to get updated predictions
-            structured_predictions = get_structured_predictions()
+            json_data = json.dumps(structured_predictions)
+            logging.debug(f"📤 Sending data to clients: {json_data}")
 
-            # ✅ Convert to JSON and send to clients
-            json_data = json.dumps(structured_predictions)  
             for client in list(clients):
                 try:
                     await client.send_text(json_data)
@@ -30,12 +37,12 @@ async def send_live_nba_data():
                     logging.error(f"❌ Failed to send data: {e}")
                     clients.remove(client)
 
-        await asyncio.sleep(10)  # Adjust frequency based on how often data updates
+        await asyncio.sleep(10)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logging.info("🚀 WebSocket Server Starting...")
-    asyncio.create_task(send_live_nba_data())  # ✅ Start sending predictions
+    asyncio.create_task(send_live_nba_data())
     yield
     logging.info("🛑 WebSocket Server Stopping...")
 
@@ -57,6 +64,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+
 
 
 
