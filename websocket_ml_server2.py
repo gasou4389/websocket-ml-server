@@ -1,43 +1,35 @@
-import os
-import json
 import asyncio
 import logging
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
 from contextlib import asynccontextmanager
+import json  # ✅ Add this import
 
-# ✅ Define path to JSON file
-json_file_path = "C:/NBA/predictions.json"  # ✅ Save outside OneDrive
-
+# Enable detailed logging
 logging.basicConfig(level=logging.DEBUG)
+
 clients = set()
 
-def load_predictions():
-    """Load predictions from JSON file."""
-    try:
-        with open(json_file_path, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        logging.error("❌ Predictions JSON file not found.")
-        return []
+
 
 async def send_live_nba_data():
     while True:
         if clients:
-            logging.debug("🔥 Fetching latest predictions from JSON...")
-            structured_predictions = load_predictions()
-
-            json_data = json.dumps(structured_predictions)
-            logging.debug(f"📤 Sending data to clients: {json_data}")
-
+            logging.debug("🔥 Sending NBA data...")
+            sample_data = [
+                {"game_id": "LAL_vs_BOS", "total": 220.5, "over": "54.2%", "under": "45.8%"},
+                {"game_id": "MIA_vs_NYK", "total": 216.5, "over": "43.6%", "under": "56.4%"}
+            ]
+            json_data = json.dumps(sample_data)  # ✅ Convert to valid JSON
             for client in list(clients):
                 try:
-                    await client.send_text(json_data)
+                    await client.send_text(json_data)  # ✅ Send properly formatted JSON
                 except Exception as e:
                     logging.error(f"❌ Failed to send data: {e}")
                     clients.remove(client)
+        await asyncio.sleep(10)  # Keep the loop alive
 
-        await asyncio.sleep(10)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,16 +49,15 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            logging.debug(f"📩 Received from client: {data}")
+            logging.debug(f"📩 Received: {data}")
     except WebSocketDisconnect:
         logging.info(f"❌ Client Disconnected: {websocket.client}")
         clients.remove(websocket)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
-
-
-
+    import uvicorn
+    print("🚀 WebSocket Server Starting...")
+    uvicorn.run(app, host="0.0.0.0", port=8080)
 
 
 
