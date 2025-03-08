@@ -1,3 +1,8 @@
 websocket-ml-server-production.up.railway.app {
-    reverse_proxy 127.0.0.1:8080
+    reverse_proxy 0.0.0.0:8080 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up Upgrade {>Upgrade}
+        header_up Connection {>Connection}
+    }
 }
+
