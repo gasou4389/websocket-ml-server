@@ -4,11 +4,14 @@ import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
 from contextlib import asynccontextmanager
+import json  # ✅ Add this import
 
 # Enable detailed logging
 logging.basicConfig(level=logging.DEBUG)
 
 clients = set()
+
+
 
 async def send_live_nba_data():
     while True:
@@ -18,13 +21,15 @@ async def send_live_nba_data():
                 {"game_id": "LAL_vs_BOS", "total": 220.5, "over": "54.2%", "under": "45.8%"},
                 {"game_id": "MIA_vs_NYK", "total": 216.5, "over": "43.6%", "under": "56.4%"}
             ]
+            json_data = json.dumps(sample_data)  # ✅ Convert to valid JSON
             for client in list(clients):
                 try:
-                    await client.send_text(str(sample_data))
+                    await client.send_text(json_data)  # ✅ Send properly formatted JSON
                 except Exception as e:
                     logging.error(f"❌ Failed to send data: {e}")
                     clients.remove(client)
         await asyncio.sleep(10)  # Keep the loop alive
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
