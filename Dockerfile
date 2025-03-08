@@ -14,7 +14,7 @@ COPY . .
 RUN pip install -r requirements.txt
 
 # Generate SSL certificates using Certbot (Replace YOUR_DOMAIN)
-RUN certbot certonly --standalone --non-interactive --agree-tos --email your-email@example.com -d YOUR_DOMAIN
+RUN certbot certonly --standalone --non-interactive --agree-tos --email Brandon.Moyer8884@outlook.com -d websocket-ml-server-production.up.railway.app
 
 # Expose port 8080
 EXPOSE 8080
