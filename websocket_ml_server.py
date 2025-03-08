@@ -50,8 +50,9 @@ async def websocket_endpoint(websocket: WebSocket):
         clients.remove(websocket)
 
 if __name__ == "__main__":
-    logging.info("🚀 Starting WebSocket Server on Railway...")
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    import uvicorn
+    print("🚀 WebSocket Server Starting...")
+    uvicorn.run(app, host="0.0.0.0", port=8080)
 
 
 
