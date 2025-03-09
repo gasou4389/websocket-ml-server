@@ -32,23 +32,26 @@ def load_predictions():
         return []
 
 async def send_live_nba_data():
-    """Continuously send NBA predictions to all connected clients every 10 seconds."""
     while True:
         if clients:
             logging.debug("🔥 Fetching latest predictions from JSON...")
             structured_predictions = load_predictions()
 
-            json_data = json.dumps(structured_predictions, indent=4)
+            # ✅ DEBUG: Print the data before sending
+            print("📤 Sending data to WebSocket:", json.dumps(structured_predictions, indent=4))
+
+            json_data = json.dumps(structured_predictions)
             logging.debug(f"📤 Sending data to clients: {json_data}")
 
             for client in list(clients):
                 try:
                     await client.send_text(json_data)
                 except Exception as e:
-                    logging.error(f"❌ Failed to send data to client: {e}")
-                    clients.remove(client)  # Remove disconnected clients
+                    logging.error(f"❌ Failed to send data: {e}")
+                    clients.remove(client)
 
-        await asyncio.sleep(10)  # Send updates every 10 seconds
+        await asyncio.sleep(10)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
