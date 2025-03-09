@@ -6,7 +6,6 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from contextlib import asynccontextmanager
-import time 
 
 # ✅ Automatically adjust the path for different environments
 if os.getenv("RAILWAY_ENVIRONMENT"):
@@ -17,19 +16,10 @@ else:
 logging.basicConfig(level=logging.DEBUG)
 clients = {}  # ✅ Store clients with their requested `game_id`
 
-
 def load_predictions():
-    """Always load the latest predictions JSON file from disk and force refresh if modified."""
+    """Always load the latest predictions JSON file from disk."""
     try:
         logging.debug(f"🔍 Checking for predictions JSON at: {json_file_path}")
-
-        # ✅ Force read latest file by checking its modification time
-        last_modified = os.stat(json_file_path).st_mtime  # Last modified timestamp
-        current_time = time.time()  # Current time
-        time_since_modification = current_time - last_modified
-
-        logging.debug(f"🕒 Last modified: {time_since_modification} seconds ago")
-
         with open(json_file_path, "r", encoding="utf-8") as f:
             predictions = json.load(f)
             logging.debug("✅ Predictions JSON loaded successfully.")
@@ -47,7 +37,6 @@ def load_predictions():
         logging.error("❌ JSON decoding error: File might be corrupted.")
         return []
 
-
 def get_unique_games():
     """Extract unique games from predictions.json (FORCE RELOAD)."""
     predictions = load_predictions()  # ✅ Always get fresh data
@@ -63,12 +52,11 @@ def get_unique_games():
     return [{"game_ID": gid, "game_name": gname} for gid, gname in unique_games.items()]
 
 async def send_live_nba_data():
-    """Continuously sends filtered NBA predictions to clients (FORCE RELOAD JSON)."""
+    """Continuously sends filtered NBA predictions to clients."""
     while True:
         if clients:
             logging.debug("🔥 Fetching latest predictions...")
-            
-            predictions = load_predictions()  # ✅ Force reload JSON every loop
+            predictions = load_predictions()  # ✅ Always reload JSON
 
             for websocket, game_id in list(clients.items()):
                 try:
@@ -85,8 +73,7 @@ async def send_live_nba_data():
                     logging.error(f"❌ Failed to send data: {e}")
                     clients.pop(websocket, None)
 
-        await asyncio.sleep(10)  # ✅ Keep refreshing every 10 seconds
-
+        await asyncio.sleep(10)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -9,7 +9,7 @@ json_file_path = "C:/NBA/predictions.json"  # ✅ Save outside OneDrive
 file_path = os.path.join(os.path.dirname(__file__), "Live Summary.xlsx")
 
 def generate_predictions_json():
-    """Extract predictions from Excel and save them as a JSON file."""
+    """Extract predictions from Excel, print them, and save as JSON."""
     try:
         xls = pd.ExcelFile(file_path)
         sheet_names = [f"Game {i}" for i in range(1, 16)]
@@ -52,7 +52,17 @@ def generate_predictions_json():
                 # ✅ Replace NaN and empty strings with None (null in JSON)
                 df = df.map(lambda x: None if pd.isna(x) or x == "" else x)
 
-                structured_predictions.extend(df.to_dict(orient="records"))
+                # ✅ Convert to dictionary format
+                game_predictions = df.to_dict(orient="records")
+                structured_predictions.extend(game_predictions)
+
+                # ✅ Print predictions for this game
+                print(f"\n📊 Predictions for {game_name}:\n")
+                for i, row in enumerate(game_predictions[:5]):  # Print first 5 rows
+                    print(f"{i+1}. {row}")
+                if len(game_predictions) > 5:
+                    print(f"... ({len(game_predictions) - 5} more rows hidden)\n")
+
             except Exception as e:
                 print(f"❌ Error processing {sheet}: {e}")
 
@@ -60,7 +70,7 @@ def generate_predictions_json():
         with open(json_file_path, "w") as f:
             json.dump(structured_predictions, f, indent=4)
 
-        print(f"✅ Predictions saved to {json_file_path}")
+        print(f"\n✅ Predictions saved to {json_file_path}")
 
     except FileNotFoundError:
         print("❌ Excel file not found. Ensure 'Live Summary.xlsx' is in the correct location.")
@@ -68,6 +78,7 @@ def generate_predictions_json():
 # Run this script manually to generate the JSON
 if __name__ == "__main__":
     generate_predictions_json()
+
 
 
 
