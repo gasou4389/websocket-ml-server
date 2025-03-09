@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from contextlib import asynccontextmanager
 
-# ✅ Waitress HTTP Server URL for JSON
-WAITRESS_JSON_URL = "http://127.0.0.1:5000/predictions.json"
+WAITRESS_JSON_URL = "https://websocket-ml-server-production.up.railway.app/predictions.json"
+
 
 logging.basicConfig(level=logging.DEBUG)
 clients = {}  # ✅ Store clients with their requested `game_id`
