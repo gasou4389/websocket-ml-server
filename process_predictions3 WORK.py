@@ -17,24 +17,10 @@ def generate_predictions_json():
 
         for sheet in sheet_names:
             try:
-                # ✅ Read the game name from column V (row 9)
                 game_name = pd.read_excel(xls, sheet_name=sheet, usecols="V", skiprows=8, nrows=1).iloc[0, 0]
-
-                # ✅ Read headers from B1:J1
-                headers_BJ = pd.read_excel(xls, sheet_name=sheet, usecols="B:J", skiprows=0, nrows=1, header=None).iloc[0].astype(str).tolist()
-
-                # ✅ Read data from B2:J2
-                data_BJ = pd.read_excel(xls, sheet_name=sheet, usecols="B:J", skiprows=1, nrows=1, header=None).iloc[0].tolist()
-
-                # ✅ Convert B2:J2 data into a dictionary using headers_BJ as keys
-                extra_game_data = dict(zip(headers_BJ, data_BJ))
-
-                # ✅ Read main headers from A1:U1 (row 9)
-                headers_main = pd.read_excel(xls, sheet_name=sheet, usecols="A:U", skiprows=8, nrows=1, header=None).iloc[0].astype(str).tolist()
-
-                # ✅ Read main table data from A2:U52 (rows 10-61)
+                headers = pd.read_excel(xls, sheet_name=sheet, usecols="A:U", skiprows=8, nrows=1, header=None).iloc[0].astype(str).tolist()
                 df = pd.read_excel(xls, sheet_name=sheet, usecols="A:U", skiprows=9, nrows=52, header=None)
-                df.columns = headers_main
+                df.columns = headers
 
                 # ✅ Add game_ID
                 df.insert(0, "game_ID", game_name)
@@ -44,10 +30,6 @@ def generate_predictions_json():
                     df["Row_ID"] = df.apply(lambda row: f"{row['game_ID']}_{row['Row']}" if pd.notna(row["Row"]) else None, axis=1)
                 else:
                     print(f"⚠️ Warning: 'Row' column missing in {sheet}, skipping Row_ID generation.")
-
-                # ✅ Merge extra game data (B2:J2) into each row
-                for key, value in extra_game_data.items():
-                    df[key] = value  # Assign same value to all rows
 
                 # ✅ Replace NaN and empty strings with None (null in JSON)
                 df = df.map(lambda x: None if pd.isna(x) or x == "" else x)
