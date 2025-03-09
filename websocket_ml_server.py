@@ -17,14 +17,14 @@ logging.basicConfig(level=logging.DEBUG)
 clients = {}  # ✅ Store clients with their requested `game_id`
 
 def load_predictions():
-    """Load predictions from JSON file and ensure each row has a unique Row_ID."""
+    """Always load the latest predictions JSON file from disk."""
     try:
         logging.debug(f"🔍 Checking for predictions JSON at: {json_file_path}")
         with open(json_file_path, "r", encoding="utf-8") as f:
             predictions = json.load(f)
             logging.debug("✅ Predictions JSON loaded successfully.")
 
-        # ✅ Ensure each entry has a unique identifier
+        # ✅ Ensure each entry has a unique Row_ID
         for pred in predictions:
             if "Row_ID" not in pred:
                 pred["Row_ID"] = f"{pred.get('game_ID', 'unknown')}_{pred.get('Row', 'unknown')}"
@@ -38,16 +38,16 @@ def load_predictions():
         return []
 
 def get_unique_games():
-    """Extract unique games (game_ID + name) from predictions.json."""
-    predictions = load_predictions()
+    """Extract unique games from predictions.json (FORCE RELOAD)."""
+    predictions = load_predictions()  # ✅ Always get fresh data
     unique_games = {}
 
     for pred in predictions:
         game_id = pred.get("game_ID", "unknown")
-        game_name = pred.get("game_name", f"Game {game_id}")  # Use name if available
+        game_name = pred.get("game_name", f"Game {game_id}")
 
         if game_id not in unique_games:
-            unique_games[game_id] = game_name  # Store unique games
+            unique_games[game_id] = game_name
 
     return [{"game_ID": gid, "game_name": gname} for gid, gname in unique_games.items()]
 
@@ -56,7 +56,7 @@ async def send_live_nba_data():
     while True:
         if clients:
             logging.debug("🔥 Fetching latest predictions...")
-            predictions = load_predictions()
+            predictions = load_predictions()  # ✅ Always reload JSON
 
             for websocket, game_id in list(clients.items()):
                 try:
@@ -95,7 +95,7 @@ app.add_middleware(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """Handles WebSocket connections, filtering by game_id."""
+    """Handles WebSocket connections, filtering by game_id (FORCES JSON RELOAD)."""
     await websocket.accept()
     logging.info(f"✅ WebSocket Connection Opened: {websocket.client}")
 
@@ -118,10 +118,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.websocket("/games")
 async def websocket_games(websocket: WebSocket):
-    """Sends a list of unique game names & IDs."""
+    """Sends a list of unique game names & IDs (FORCE JSON RELOAD)."""
     await websocket.accept()
     try:
-        games = get_unique_games()
+        games = get_unique_games()  # ✅ Always reload JSON
         await websocket.send_text(json.dumps(games))
         logging.info(f"📤 Sent {len(games)} game links to client")
     except Exception as e:
@@ -129,6 +129,7 @@ async def websocket_games(websocket: WebSocket):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+
 
 
 
