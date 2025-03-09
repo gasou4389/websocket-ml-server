@@ -5,6 +5,7 @@ import json
 # ✅ Define a relative path for JSON output
 json_file_path = "C:/NBA/predictions.json"  # ✅ Save outside OneDrive
 
+
 # ✅ Use a relative path to load Excel
 file_path = os.path.join(os.path.dirname(__file__), "Live Summary.xlsx")
 
@@ -21,15 +22,7 @@ def generate_predictions_json():
                 headers = pd.read_excel(xls, sheet_name=sheet, usecols="A:U", skiprows=8, nrows=1, header=None).iloc[0].astype(str).tolist()
                 df = pd.read_excel(xls, sheet_name=sheet, usecols="A:U", skiprows=9, nrows=52, header=None)
                 df.columns = headers
-
-                # ✅ Add game_ID
                 df.insert(0, "game_ID", game_name)
-
-                # ✅ Create a unique Row_ID by combining game_ID and Row column
-                if "Row" in df.columns:
-                    df["Row_ID"] = df.apply(lambda row: f"{row['game_ID']}_{row['Row']}" if pd.notna(row["Row"]) else None, axis=1)
-                else:
-                    print(f"⚠️ Warning: 'Row' column missing in {sheet}, skipping Row_ID generation.")
 
                 # ✅ Replace NaN and empty strings with None (null in JSON)
                 df = df.map(lambda x: None if pd.isna(x) or x == "" else x)
@@ -50,7 +43,6 @@ def generate_predictions_json():
 # Run this script manually to generate the JSON
 if __name__ == "__main__":
     generate_predictions_json()
-
 
 
 
