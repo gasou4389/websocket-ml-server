@@ -10,8 +10,7 @@ import time
 
 # ✅ Automatically adjust the path for different environments
 if os.getenv("RAILWAY_ENVIRONMENT"):
-   # json_file_path = "/app/predictions.json"
-   json_file_path = r"C:\NBA\predictions.json"
+   json_file_path = "/app/predictions.json"
 else:
     json_file_path = r"C:\NBA\predictions.json"
 
