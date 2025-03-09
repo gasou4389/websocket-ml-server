@@ -40,21 +40,26 @@ def load_predictions():
 def get_unique_games():
     """Extract unique games from the predictions JSON (ALWAYS FORCE RELOAD)."""
     predictions = load_predictions()  # ✅ Always reload JSON
-    logging.debug(f"🔍 Raw Predictions Data: {predictions}")  # ✅ Add this debug log
+    logging.debug(f"🔍 Raw Predictions Data: {predictions}")  # ✅ Debug log
 
     unique_games = {}
 
     for pred in predictions:
-        game_id = pred.get("game_ID", "unknown")
-        game_name = pred.get("game_name", f"Game {game_id}")
+        game_id = pred.get("game_ID")
 
-        if game_id not in unique_games:
-            unique_games[game_id] = game_name
+        # ✅ FILTER OUT invalid game_IDs (None, empty, "unknown")
+        if not game_id or game_id == "unknown":
+            logging.warning(f"⚠ Skipping invalid game entry: {pred}")
+            continue
+        
+        game_name = pred.get("game_name", f"Game {game_id}")
+        unique_games[game_id] = game_name
 
     games_list = [{"game_ID": gid, "game_name": gname} for gid, gname in unique_games.items()]
-    logging.debug(f"📊 Extracted Unique Games: {games_list}")  # ✅ Add this debug log
+    logging.debug(f"📊 Extracted Unique Games: {games_list}")  # ✅ Debug log
 
     return games_list
+
 
 
 async def send_live_nba_data():
