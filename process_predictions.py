@@ -6,7 +6,7 @@ import json
 json_file_path = "C:/NBA/predictions.json"  # ✅ Save outside OneDrive
 
 # ✅ Use a relative path to load Excel
-file_path = os.path.join(os.path.dirname(__file__), "Live Summary.xlsx")
+file_path = "C:/NBA/Live Summary.xlsx"
 
 def generate_predictions_json():
     """Extract predictions from Excel, print them, and save as JSON."""

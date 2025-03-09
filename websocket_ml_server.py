@@ -39,7 +39,9 @@ def load_predictions():
 
 def get_unique_games():
     """Extract unique games from the predictions JSON (ALWAYS FORCE RELOAD)."""
-    predictions = load_predictions()  # ✅ Always get fresh data
+    predictions = load_predictions()  # ✅ Always reload JSON
+    logging.debug(f"🔍 Raw Predictions Data: {predictions}")  # ✅ Add this debug log
+
     unique_games = {}
 
     for pred in predictions:
@@ -49,7 +51,11 @@ def get_unique_games():
         if game_id not in unique_games:
             unique_games[game_id] = game_name
 
-    return [{"game_ID": gid, "game_name": gname} for gid, gname in unique_games.items()]
+    games_list = [{"game_ID": gid, "game_name": gname} for gid, gname in unique_games.items()]
+    logging.debug(f"📊 Extracted Unique Games: {games_list}")  # ✅ Add this debug log
+
+    return games_list
+
 
 async def send_live_nba_data():
     """Continuously sends filtered NBA predictions to clients."""
