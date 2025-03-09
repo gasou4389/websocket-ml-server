@@ -3,4 +3,5 @@ uvicorn
 websockets
 pandas
 openpyxl
+requests 
 
