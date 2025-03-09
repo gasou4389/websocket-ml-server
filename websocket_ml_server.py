@@ -2,98 +2,60 @@ import os
 import json
 import asyncio
 import logging
-import requests
+import requests  # ✅ NEW: Use requests to get fresh JSON from Waitress
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from contextlib import asynccontextmanager
-from http.server import SimpleHTTPRequestHandler
-import threading
-from socketserver import TCPServer
 
-# ✅ Automatically get the latest JSON file
-LOCAL_MACHINE_IP = "192.168.1.100"  # Replace with your actual IP
-LOCAL_PORT = 5000  # The HTTP server port
-json_url = f"http://{LOCAL_MACHINE_IP}:{LOCAL_PORT}/predictions.json"
+# ✅ Waitress HTTP Server URL for JSON
+WAITRESS_JSON_URL = "http://127.0.0.1:5000/predictions.json"
 
-if os.getenv("RAILWAY_ENVIRONMENT"):
-    try:
-        logging.info(f"🌍 Fetching latest JSON from {json_url}")
-        response = requests.get(json_url)
-        if response.status_code == 200:
-            predictions = response.json()  # ✅ Fetch latest JSON from local machine
-            json_file_path = None  # ✅ No need for a local file
-        else:
-            logging.warning(f"⚠️ Failed to fetch from local machine, using backup.")
-            json_file_path = "/app/predictions.json"  # Fallback to older file
-    except Exception as e:
-        logging.error(f"❌ Error fetching JSON: {e}")
-        json_file_path = "/app/predictions.json"  # Use fallback
-else:
-    json_file_path = r"C:\NBA\predictions.json"  # ✅ Use local file when not on Railway
-
-
-# ✅ Start an HTTP server to serve `predictions.json`
-class MyHandler(SimpleHTTPRequestHandler):
-    """Custom HTTP handler to serve JSON files"""
-    def do_GET(self):
-        if self.path == "/predictions.json":
-            try:
-                with open(json_file_path, "r", encoding="utf-8") as f:
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(f.read().encode("utf-8"))
-            except Exception as e:
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(f"Error loading JSON: {e}".encode("utf-8"))
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-
-def start_http_server():
-    """Runs the HTTP server in a separate thread."""
-    with TCPServer(("", LOCAL_PORT), MyHandler) as httpd:
-        logging.info(f"✅ HTTP Server Running on Port {LOCAL_PORT}")
-        httpd.serve_forever()
-
-
-# ✅ Start HTTP Server in a separate thread
-http_thread = threading.Thread(target=start_http_server, daemon=True)
-http_thread.start()
-
-
-# ✅ WebSocket server logic below
-clients = {}  # Store clients with their requested `game_id`
+logging.basicConfig(level=logging.DEBUG)
+clients = {}  # ✅ Store clients with their requested `game_id`
 
 def load_predictions():
-    """Always load the latest predictions JSON file from disk."""
+    """Fetch the latest predictions from Waitress HTTP Server instead of reading from file."""
     try:
-        logging.debug(f"🔍 Checking for predictions JSON at: {json_file_path}")
-        with open(json_file_path, "r", encoding="utf-8") as f:
-            predictions = json.load(f)
+        logging.debug(f"🔍 Fetching predictions from: {WAITRESS_JSON_URL}")
+        response = requests.get(WAITRESS_JSON_URL)
+
+        if response.status_code == 200:
+            predictions = response.json()
             logging.debug("✅ Predictions JSON loaded successfully.")
 
-        # ✅ Ensure each entry has a unique Row_ID
-        for pred in predictions:
-            if "Row_ID" not in pred:
-                pred["Row_ID"] = f"{pred.get('game_ID', 'unknown')}_{pred.get('Row', 'unknown')}"
+            # ✅ Ensure each entry has a unique Row_ID
+            for pred in predictions:
+                if "Row_ID" not in pred:
+                    pred["Row_ID"] = f"{pred.get('game_ID', 'unknown')}_{pred.get('Row', 'unknown')}"
 
-        return predictions
-    except FileNotFoundError:
-        logging.error("❌ Predictions JSON file not found.")
+            return predictions
+        else:
+            logging.error(f"❌ Failed to fetch predictions (HTTP {response.status_code})")
+            return []
+    except requests.RequestException as e:
+        logging.error(f"❌ Error fetching JSON from Waitress: {e}")
         return []
-    except json.JSONDecodeError:
-        logging.error("❌ JSON decoding error: File might be corrupted.")
-        return []
+
+def get_unique_games():
+    """Extract unique games from the predictions JSON (ALWAYS FORCE RELOAD)."""
+    predictions = load_predictions()  # ✅ Always get fresh data
+    unique_games = {}
+
+    for pred in predictions:
+        game_id = pred.get("game_ID", "unknown")
+        game_name = pred.get("game_name", f"Game {game_id}")
+
+        if game_id not in unique_games:
+            unique_games[game_id] = game_name
+
+    return [{"game_ID": gid, "game_name": gname} for gid, gname in unique_games.items()]
 
 async def send_live_nba_data():
     """Continuously sends filtered NBA predictions to clients."""
     while True:
         if clients:
-            logging.debug("🔥 Fetching latest predictions...")
+            logging.debug("🔥 Fetching latest predictions from Waitress...")
             predictions = load_predictions()  # ✅ Always reload JSON
 
             for websocket, game_id in list(clients.items()):
@@ -133,7 +95,7 @@ app.add_middleware(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """Handles WebSocket connections, filtering by game_id (FORCES JSON RELOAD)."""
+    """Handles WebSocket connections, filtering by game_id (ALWAYS RELOADS JSON)."""
     await websocket.accept()
     logging.info(f"✅ WebSocket Connection Opened: {websocket.client}")
 
@@ -156,27 +118,18 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.websocket("/games")
 async def websocket_games(websocket: WebSocket):
-    """Sends a list of unique game names & IDs (FORCE JSON RELOAD)."""
+    """Sends a list of unique game names & IDs (ALWAYS RELOADS JSON)."""
     await websocket.accept()
     try:
-        games = load_predictions()
-        unique_games = {}
-
-        for game in games:
-            game_id = game.get("game_ID", "unknown")
-            game_name = game.get("game_name", f"Game {game_id}")
-
-            if game_id not in unique_games:
-                unique_games[game_id] = game_name
-
-        game_list = [{"game_ID": gid, "game_name": gname} for gid, gname in unique_games.items()]
-        await websocket.send_text(json.dumps(game_list))
-        logging.info(f"📤 Sent {len(game_list)} game links to client")
+        games = get_unique_games()  # ✅ Always reload JSON
+        await websocket.send_text(json.dumps(games))
+        logging.info(f"📤 Sent {len(games)} game links to client")
     except Exception as e:
         logging.error(f"❌ Failed to send game list: {e}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+
 
 
 
