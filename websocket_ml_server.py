@@ -7,7 +7,8 @@ import uvicorn
 from contextlib import asynccontextmanager
 
 # ✅ Define path to JSON file
-json_file_path = "C:/NBA/predictions.json"  # ✅ Save outside OneDrive
+json_file_path = os.path.abspath("C:/NBA/predictions.json")
+
 
 logging.basicConfig(level=logging.DEBUG)
 clients = set()
@@ -15,9 +16,11 @@ clients = set()
 def load_predictions():
     """Load predictions from JSON file and ensure each row has a unique Row_ID."""
     try:
+        logging.debug(f"🔍 Checking for predictions JSON at: {json_file_path}")
         with open(json_file_path, "r") as f:
             predictions = json.load(f)
-        
+            logging.debug("✅ Predictions JSON loaded successfully.")
+            return predictions
         # ✅ Ensure each entry has a unique identifier
         for pred in predictions:
             if "Row_ID" not in pred:
