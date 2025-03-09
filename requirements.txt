@@ -4,4 +4,6 @@ websockets
 pandas
 openpyxl
 requests 
+asyncpg
+
 

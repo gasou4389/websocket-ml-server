@@ -10,10 +10,10 @@ COPY . .
 # Install dependencies
 RUN pip install -r requirements.txt
 
-# Expose the correct port
+# Expose the correct port (Use ENV variable)
 EXPOSE 8080
 
-# Start WebSocket server
-CMD ["uvicorn", "websocket_ml_server:app", "--host", "0.0.0.0", "--port", "8080"]
+# Start WebSocket server, dynamically setting the port
+CMD ["sh", "-c", "uvicorn websocket_ml_server:app --host 0.0.0.0 --port ${PORT:-8080}"]
 
 
