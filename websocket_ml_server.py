@@ -3,11 +3,15 @@ import json
 import asyncio
 import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from contextlib import asynccontextmanager
 
-# ✅ Define path to JSON file
-json_file_path = os.path.abspath(r"C:\NBA\predictions.json")
+# ✅ Automatically adjust the path for different environments
+if os.getenv("RAILWAY_ENVIRONMENT"):  # Detect if running on Railway
+    json_file_path = "/app/predictions.json"  # Adjust for Linux deployment
+else:
+    json_file_path = r"C:\NBA\predictions.json"  # Local Windows path
 
 logging.basicConfig(level=logging.DEBUG)
 clients = set()
@@ -27,7 +31,7 @@ def load_predictions():
 
         return predictions  # ✅ Return correctly processed data
     except FileNotFoundError:
-        logging.error("❌ Predictions JSON file not found.")
+        logging.error("❌ Predictions JSON file not found. Ensure it's deployed correctly.")
         return []
     except json.JSONDecodeError:
         logging.error("❌ JSON decoding error: File might be corrupted.")
@@ -46,7 +50,7 @@ async def send_live_nba_data():
                 json_data = json.dumps(predictions)
 
                 # ✅ DEBUG: Print the data before sending
-                logging.debug(f"📤 Sending data to clients: {json_data}")
+                logging.debug(f"📤 Sending data to {len(clients)} clients: {json_data}")
 
                 for client in list(clients):
                     try:
@@ -67,6 +71,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# ✅ Allow WebSocket connections & CORS (Fix for 403 Forbidden error)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Replace with frontend domain for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """Handles WebSocket connections and disconnections."""
@@ -84,6 +97,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+
 
 
 
