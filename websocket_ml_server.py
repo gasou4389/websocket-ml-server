@@ -7,8 +7,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 
 # ✅ Define path to JSON file
-json_file_path = os.path.abspath("C:/NBA/predictions.json")
-
+json_file_path = os.path.abspath(r"C:\NBA\predictions.json")
 
 logging.basicConfig(level=logging.DEBUG)
 clients = set()
@@ -17,16 +16,16 @@ def load_predictions():
     """Load predictions from JSON file and ensure each row has a unique Row_ID."""
     try:
         logging.debug(f"🔍 Checking for predictions JSON at: {json_file_path}")
-        with open(json_file_path, "r") as f:
+        with open(json_file_path, "r", encoding="utf-8") as f:
             predictions = json.load(f)
             logging.debug("✅ Predictions JSON loaded successfully.")
-            return predictions
+
         # ✅ Ensure each entry has a unique identifier
         for pred in predictions:
             if "Row_ID" not in pred:
-                pred["Row_ID"] = f"{pred['game_ID']}_{pred['Row']}"
+                pred["Row_ID"] = f"{pred.get('game_ID', 'unknown')}_{pred.get('Row', 'unknown')}"
 
-        return predictions
+        return predictions  # ✅ Return correctly processed data
     except FileNotFoundError:
         logging.error("❌ Predictions JSON file not found.")
         return []
@@ -35,31 +34,34 @@ def load_predictions():
         return []
 
 async def send_live_nba_data():
+    """Continuously sends the latest NBA predictions to connected WebSocket clients."""
     while True:
         if clients:
-            logging.debug("🔥 Fetching latest predictions from JSON...")
-            structured_predictions = load_predictions()
+            logging.debug(f"🔥 Fetching latest predictions from JSON...")
+            predictions = load_predictions()
 
-            # ✅ DEBUG: Print the data before sending
-            print("📤 Sending data to WebSocket:", json.dumps(structured_predictions, indent=4))
+            if not predictions:
+                logging.warning("⚠ No predictions available to send.")
+            else:
+                json_data = json.dumps(predictions)
 
-            json_data = json.dumps(structured_predictions)
-            logging.debug(f"📤 Sending data to clients: {json_data}")
+                # ✅ DEBUG: Print the data before sending
+                logging.debug(f"📤 Sending data to clients: {json_data}")
 
-            for client in list(clients):
-                try:
-                    await client.send_text(json_data)
-                except Exception as e:
-                    logging.error(f"❌ Failed to send data: {e}")
-                    clients.remove(client)
+                for client in list(clients):
+                    try:
+                        await client.send_text(json_data)
+                    except Exception as e:
+                        logging.error(f"❌ Failed to send data: {e}")
+                        clients.remove(client)
 
         await asyncio.sleep(10)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Handles application startup and shutdown."""
     logging.info("🚀 WebSocket Server Starting...")
-    asyncio.create_task(send_live_nba_data())
+    asyncio.create_task(send_live_nba_data())  # ✅ Ensure background task starts
     yield
     logging.info("🛑 WebSocket Server Stopping...")
 
@@ -78,10 +80,11 @@ async def websocket_endpoint(websocket: WebSocket):
             logging.debug(f"📩 Received from client: {data}")
     except WebSocketDisconnect:
         logging.info(f"❌ Client Disconnected: {websocket.client}")
-        clients.remove(websocket)  # Ensure client removal
+        clients.remove(websocket)  # ✅ Ensure client removal
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+
 
 
 
