@@ -6,12 +6,31 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from contextlib import asynccontextmanager
+import aiohttp
 
 # ✅ Determine whether running on Railway or locally
 if os.getenv("RAILWAY_ENVIRONMENT"):
     LOCAL_JSON_PATH = "/app/predictions.json"  # ❌ This file won't exist
 else:
     LOCAL_JSON_PATH = "C:\\NBA\\predictions.json"  # ✅ Local Windows path
+
+
+async def request_full_data_from_local():
+    """Requests the full predictions.json file from the local machine."""
+    url = "http://localhost:5001/full_data"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    logging.info(f"✅ Received {len(data)} records from local machine")
+                    return data
+                else:
+                    logging.error(f"❌ Failed to fetch full data: {response.status}")
+                    return []
+    except Exception as e:
+        logging.error(f"❌ Error connecting to local machine: {e}")
+        return []
 
 logging.basicConfig(level=logging.DEBUG)
 clients = {}  # Store connected clients
@@ -109,7 +128,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         data = await websocket.receive_text()
-        game_id = json.loads(data).get("game_id")
+        request_data = json.loads(data)
+        game_id = request_data.get("game_id")
+        full_file_request = request_data.get("full_file", False)  # ✅ New flag
 
         if game_id:
             logging.info(f"🎯 Client subscribed to game_id: {game_id}")
@@ -118,9 +139,15 @@ async def websocket_endpoint(websocket: WebSocket):
             logging.warning("⚠ No game_id provided by client, defaulting to all games")
             clients[websocket] = None  # Allow clients to receive all game updates
 
-        # ✅ Send the latest data immediately when a client connects
+        # ✅ Ensure full file request sends entire dataset, even if the file is missing
         logging.info("📤 Sending latest available data to new client...")
-        predictions = load_predictions()
+        
+        if os.getenv("RAILWAY_ENVIRONMENT"):  # ✅ Running on Railway
+            logging.info("🚀 Requesting full data from local machine")
+            predictions = await request_full_data_from_local()  # ✅ New function
+        else:
+            predictions = load_predictions()  # ✅ Load local file
+
         filtered_data = [pred for pred in predictions if game_id is None or pred.get("game_ID") == game_id]
         await websocket.send_text(json.dumps(filtered_data))
         logging.info(f"✅ Sent {len(filtered_data)} records!")
