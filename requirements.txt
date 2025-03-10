@@ -5,5 +5,7 @@ pandas
 openpyxl
 requests 
 asyncpg
+aiohttp
+
 
 
