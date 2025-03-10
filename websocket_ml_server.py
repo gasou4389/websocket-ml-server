@@ -67,11 +67,16 @@ async def send_live_nba_data():
 
                     if filtered_data:
                         logging.debug(f"📤 Sending {len(filtered_data)} records to client {websocket.client}")
-                        await websocket.send_text(json_data)
+
+                        # ✅ Ensure WebSocket connection is still open before sending
+                        if websocket.client_state.name == "CONNECTED":
+                            await websocket.send_text(json_data)
+                        else:
+                            logging.warning(f"⚠ WebSocket {websocket.client} closed before sending data.")
+                            clients.pop(websocket, None)  # ✅ Remove disconnected client
                 except Exception as e:
                     logging.error(f"❌ Failed to send data: {e}")
-                    clients.pop(websocket, None)
-
+                    clients.pop(websocket, None)  # ✅ Handle disconnected clients properly
         await asyncio.sleep(10)  # ✅ Check for updates every 10 seconds
 
 @asynccontextmanager
