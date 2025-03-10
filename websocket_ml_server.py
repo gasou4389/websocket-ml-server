@@ -14,89 +14,48 @@ if os.getenv("RAILWAY_ENVIRONMENT"):
 else:
     LOCAL_JSON_PATH = "C:\\NBA\\predictions.json"  # ✅ Local Windows path
 
+async def fetch_predictions_from_local():
+    """Fetches full predictions.json from local Flask API."""
+    url = "http://127.0.0.1:5001/full_data"  # ✅ Local server URL
 
-async def request_full_data_from_local():
-    """Requests the full predictions.json file from the local machine."""
-    url = "http://localhost:5001/full_data"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logging.info(f"✅ Received {len(data)} records from local machine")
+                    logging.debug(f"📥 Received {len(data)} records from local API")
                     return data
                 else:
-                    logging.error(f"❌ Failed to fetch full data: {response.status}")
+                    logging.warning(f"⚠ Local API request failed: {response.status}")
                     return []
     except Exception as e:
-        logging.error(f"❌ Error connecting to local machine: {e}")
+        logging.error(f"❌ Error fetching from local API: {e}")
         return []
 
 logging.basicConfig(level=logging.DEBUG)
 clients = {}  # Store connected clients
 
-# ✅ Ensure we don't check for file updates if it doesn't exist
-last_modified = 0 if not os.path.exists(LOCAL_JSON_PATH) else os.path.getmtime(LOCAL_JSON_PATH)
-
-def has_file_updated():
-    """Check if predictions.json has been modified (Only on local machine)."""
-    global last_modified
-
-    if not os.path.exists(LOCAL_JSON_PATH):
-        return False  # ✅ Don't crash if file is missing
-
-    try:
-        new_time = os.path.getmtime(LOCAL_JSON_PATH)
-        if new_time > last_modified:
-            last_modified = new_time
-            return True
-    except FileNotFoundError:
-        logging.warning("⚠ predictions.json file not found!")
-        return False
-
-    return False
-
-def load_predictions():
-    """Force reload of the latest JSON data."""
-    if not os.path.exists(LOCAL_JSON_PATH):
-        logging.warning("⚠ File missing, returning empty list.")
-        return []
-
-    try:
-        with open(LOCAL_JSON_PATH, "r", encoding="utf-8") as file:
-            return json.loads(file.read())  # ✅ Ensures fresh data every time
-    except Exception as e:
-        logging.error(f"❌ Error loading predictions: {e}")
-        return []
-
 async def send_live_nba_data():
-    """Continuously sends updates every 10 seconds, even if predictions.json hasn't changed."""
+    """Continuously sends latest predictions to WebSocket clients."""
     while True:
-        if clients and os.path.exists(LOCAL_JSON_PATH):  # ✅ Ensure we only send if clients are connected
-            logging.debug("🔥 Fetching latest predictions from local file...")
-            predictions = load_predictions()  # ✅ Always reload the latest predictions
+        if clients:
+            predictions = await fetch_predictions_from_local()  # ✅ Get latest data
 
             for websocket, game_id in list(clients.items()):
                 try:
-                    filtered_data = [pred for pred in predictions if game_id is None or pred.get("game_ID") == game_id]
+                    filtered_data = [pred for pred in predictions if pred.get("game_ID") == game_id]
                     json_data = json.dumps(filtered_data)
 
                     if filtered_data:
-                        logging.debug(f"📤 Sending {len(filtered_data)} records to client {websocket.client} ✅")
-                        if websocket.client_state.name == "CONNECTED":
-                            await websocket.send_text(json_data)
-                            logging.debug(f"✅ Successfully sent {len(filtered_data)} records!")
-                        else:
-                            logging.warning(f"⚠ WebSocket {websocket.client} closed before sending data.")
-                            clients.pop(websocket, None)
+                        logging.debug(f"📤 Sending {len(filtered_data)} records to {websocket.client}")
+                        await websocket.send_text(json_data)
                     else:
-                        logging.warning(f"⚠ No data found for game_id {game_id}")
+                        logging.warning(f"⚠ No matching data for game_id {game_id}")
                 except Exception as e:
                     logging.error(f"❌ Failed to send data: {e}")
                     clients.pop(websocket, None)
 
-        await asyncio.sleep(10)  # ✅ Always send updates every 10 seconds, even if no new updates
-
+        await asyncio.sleep(10)  # ✅ Send updates every 10 seconds
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -139,16 +98,22 @@ async def websocket_endpoint(websocket: WebSocket):
             logging.warning("⚠ No game_id provided by client, defaulting to all games")
             clients[websocket] = None  # Allow clients to receive all game updates
 
-        # ✅ Ensure full file request sends entire dataset, even if the file is missing
         logging.info("📤 Sending latest available data to new client...")
-        
+
+        # ✅ Fetch predictions (Different sources for local vs Railway)
         if os.getenv("RAILWAY_ENVIRONMENT"):  # ✅ Running on Railway
             logging.info("🚀 Requesting full data from local machine")
-            predictions = await request_full_data_from_local()  # ✅ New function
+            predictions = await fetch_predictions_from_local()  # ✅ Correct function
         else:
-            predictions = load_predictions()  # ✅ Load local file
+            predictions = await fetch_predictions_from_local()  # ✅ Local load
 
-        filtered_data = [pred for pred in predictions if game_id is None or pred.get("game_ID") == game_id]
+        # ✅ Handle full file requests
+        if full_file_request:
+            filtered_data = predictions  # ✅ Return full dataset
+        else:
+            filtered_data = [pred for pred in predictions if game_id is None or pred.get("game_ID") == game_id]
+
+        # ✅ Always send data immediately upon connection
         await websocket.send_text(json.dumps(filtered_data))
         logging.info(f"✅ Sent {len(filtered_data)} records!")
 
@@ -165,6 +130,6 @@ async def websocket_endpoint(websocket: WebSocket):
         logging.info(f"❌ Client Disconnected: {websocket.client}")
         clients.pop(websocket, None)
 
-
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+
