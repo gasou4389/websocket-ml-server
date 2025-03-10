@@ -1,0 +1,8 @@
+websocket-ml-server-production.up.railway.app {
+    reverse_proxy localhost:${PORT} {
+        header_up X-Forwarded-Proto {scheme}
+        header_up Upgrade {>Upgrade}
+        header_up Connection {>Connection}
+        header_up Host {host}  # ✅ Ensures WebSockets work properly
+    }
+}

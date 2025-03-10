@@ -1,0 +1,38 @@
+# 🚀 Ignore large/unnecessary data files
+*.csv
+*.xlsx
+*.xlsm
+*.log
+
+# ❌ Keep `predictions.json` in local development but not in GitHub
+# If you need `predictions.json` locally, remove the wildcard `*.json`
+!predictions.json
+*.json
+
+# 🚀 Ignore system & Python cache files
+.git/
+__pycache__/
+*.pyc
+.DS_Store
+
+# 🚀 Ignore large/raw data folders (keep necessary project files)
+2024_12_13_pbp/
+API Files/
+Expected Value Table/
+Games Info/
+Live Files to Process/
+ML Predictions/
+NBA Live Data/
+NBA Raw Data/
+OLD/
+Prediction Files/
+Processed Files/
+Quarter Data/
+Web Scraping Lines/
+Code/
+
+
+# 🚀 Ignore virtual environment & dependencies
+.env
+venv/
+
