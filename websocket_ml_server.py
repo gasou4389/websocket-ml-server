@@ -16,7 +16,7 @@ else:
 
 async def fetch_predictions_from_local():
     """Fetches full predictions.json from local Flask API."""
-    url = "http://127.0.0.1:5001/full_data"  # ✅ Local server URL
+    url = "https://fffb-2600-1700-fc5-27c0-d4fb-eacc-e925-d274.ngrok-free.app"  # ✅ Local server URL
 
     try:
         async with aiohttp.ClientSession() as session:
