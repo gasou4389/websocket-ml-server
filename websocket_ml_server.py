@@ -51,14 +51,11 @@ def load_predictions():
         return []
 
 async def send_live_nba_data():
-    """Continuously sends updates when predictions.json is modified (Only runs locally)."""
-    predictions = load_predictions()  # ✅ Load initial data
-
+    """Continuously sends updates every 10 seconds, even if predictions.json hasn't changed."""
     while True:
-        if clients and os.path.exists(LOCAL_JSON_PATH):  # ✅ Only check file updates if it exists
-            if has_file_updated():
-                logging.debug("🔥 File updated! Reloading predictions...")
-                predictions = load_predictions()
+        if clients and os.path.exists(LOCAL_JSON_PATH):  # ✅ Ensure we only send if clients are connected
+            logging.debug("🔥 Fetching latest predictions from local file...")
+            predictions = load_predictions()  # ✅ Always reload the latest predictions
 
             for websocket, game_id in list(clients.items()):
                 try:
@@ -78,7 +75,9 @@ async def send_live_nba_data():
                 except Exception as e:
                     logging.error(f"❌ Failed to send data: {e}")
                     clients.pop(websocket, None)
-        await asyncio.sleep(10)  # ✅ Check for updates every 10 seconds
+
+        await asyncio.sleep(10)  # ✅ Always send updates every 10 seconds, even if no new updates
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -119,34 +118,26 @@ async def websocket_endpoint(websocket: WebSocket):
             logging.warning("⚠ No game_id provided by client, defaulting to all games")
             clients[websocket] = None  # Allow clients to receive all game updates
 
+        # ✅ Send the latest data immediately when a client connects
+        logging.info("📤 Sending latest available data to new client...")
+        predictions = load_predictions()
+        filtered_data = [pred for pred in predictions if game_id is None or pred.get("game_ID") == game_id]
+        await websocket.send_text(json.dumps(filtered_data))
+        logging.info(f"✅ Sent {len(filtered_data)} records!")
+
         while True:
-            await asyncio.sleep(60)  # Keep connection open
+            try:
+                message = await websocket.receive_text()  # Keep connection open
+                logging.info(f"📩 Received from client: {message}")
+            except WebSocketDisconnect:
+                logging.warning(f"❌ Client Disconnected: {websocket.client}")
+                clients.pop(websocket, None)
+                break  # Exit loop if disconnected
 
     except WebSocketDisconnect:
         logging.info(f"❌ Client Disconnected: {websocket.client}")
         clients.pop(websocket, None)
 
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
