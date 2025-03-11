@@ -4,26 +4,24 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 
 app = FastAPI()
 clients = set()
-latest_predictions = []  # ✅ Stores the latest received predictions
+latest_predictions = []  # Stores latest predictions
 
 @app.websocket("/games")
 async def websocket_endpoint(websocket: WebSocket):
-    """Handles WebSocket connections and sends live predictions when requested."""
+    """Handles WebSocket connections and sends valid JSON."""
     await websocket.accept()
     logging.info(f"✅ WebSocket Connection Opened: {websocket.client}")
-    clients.add(websocket)
 
     try:
         while True:
             message = await websocket.receive_text()
             logging.info(f"📩 Received: {message}")
+
             request_data = json.loads(message)
-
-            # ✅ Send latest predictions when requested
             if request_data.get("request") == "all_games":
-                await websocket.send_text(json.dumps(latest_predictions))
+                response_json = json.dumps(latest_predictions, ensure_ascii=False)
+                await websocket.send_text(response_json)
                 logging.info(f"✅ Sent {len(latest_predictions)} games to WebSocket client")
-
     except WebSocketDisconnect:
         logging.warning(f"❌ Client Disconnected: {websocket.client}")
         clients.remove(websocket)
@@ -56,11 +54,3 @@ async def forward_data(request: Request):
     except Exception as e:
         logging.error(f"❌ Error in forward_data: {e}")
         return {"error": f"Failed to forward data: {e}"}
-
-
-
-
-
-
-
-
