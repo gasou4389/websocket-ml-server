@@ -8,7 +8,7 @@ clients = {}  # Stores WebSocket connections
 
 @app.websocket("/games")
 async def websocket_endpoint(websocket: WebSocket):
-    """Handles WebSocket connections and logs all events."""
+    """Handles WebSocket connections and ensures correct JSON formatting."""
     await websocket.accept()
     logging.info(f"✅ WebSocket Connection Opened: {websocket.client}")
 
@@ -17,15 +17,16 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 message = await websocket.receive_text()
                 logging.info(f"📩 Received from client: {message}")
-                
-                # ✅ Echo the message back for debugging
-                await websocket.send_text(f"Server Echo: {message}")
+
+                # ✅ Ensure we send only raw JSON (remove "Server Echo: ")
+                await websocket.send_text(message)  
             except WebSocketDisconnect:
                 logging.warning(f"❌ Client Disconnected: {websocket.client}")
                 clients.pop(websocket, None)
                 break
     except Exception as e:
         logging.error(f"❌ WebSocket Error: {e}")
+
 
 
 
