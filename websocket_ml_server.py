@@ -17,12 +17,19 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 message = await websocket.receive_text()
                 logging.info(f"📩 Received from client: {message}")
+                request_data = json.loads(message)
 
-                # ✅ Ensure we send only raw JSON (remove "Server Echo: ")
-                await websocket.send_text(message)  
+                # ✅ If client requests all games, send all predictions
+                if request_data.get("request") == "all_games":
+                    with open("C:\\NBA\\predictions.json", "r", encoding="utf-8") as file:
+                        predictions = json.load(file)
+
+                    json_data = json.dumps(predictions)
+                    await websocket.send_text(json_data)
+                    logging.info(f"✅ Sent {len(predictions)} games to WebSocket client")
+
             except WebSocketDisconnect:
                 logging.warning(f"❌ Client Disconnected: {websocket.client}")
-                clients.pop(websocket, None)
                 break
     except Exception as e:
         logging.error(f"❌ WebSocket Error: {e}")
