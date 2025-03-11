@@ -8,38 +8,43 @@ clients = {}  # Stores WebSocket connections
 
 @app.websocket("/games")
 async def websocket_endpoint(websocket: WebSocket):
-    """Handles WebSocket connections."""
+    """Handles WebSocket connections and logs all events."""
     await websocket.accept()
     logging.info(f"✅ WebSocket Connection Opened: {websocket.client}")
 
-    clients[websocket] = True  # ✅ Store client
-
     try:
         while True:
-            message = await websocket.receive_text()
-            logging.info(f"📩 Received from client: {message}")
-    except WebSocketDisconnect:
-        logging.warning(f"❌ Client Disconnected: {websocket.client}")
-        if websocket in clients:
-            del clients[websocket]
+            try:
+                message = await websocket.receive_text()
+                logging.info(f"📩 Received from client: {message}")
+                
+                # ✅ Echo the message back for debugging
+                await websocket.send_text(f"Server Echo: {message}")
+            except WebSocketDisconnect:
+                logging.warning(f"❌ Client Disconnected: {websocket.client}")
+                clients.pop(websocket, None)
+                break
+    except Exception as e:
+        logging.error(f"❌ WebSocket Error: {e}")
+
 
 
 @app.post("/forward_data")
 async def forward_data(request: Request):
-    """Receives predictions and forwards them to WebSocket clients."""
+    """Receives predictions and forwards ALL data to WebSocket clients."""
     try:
         data = await request.json()
         predictions = data.get("predictions", [])
-        
-        logging.info(f"Received data: {json.dumps(predictions, indent=2)}")
 
         if clients:
             json_data = json.dumps(predictions)
+            logging.info(f"✅ Forwarding {len(predictions)} records to {len(clients)} WebSocket clients")
+
             for websocket in list(clients.keys()):
                 try:
                     if websocket.client_state.name == "CONNECTED":
                         await websocket.send_text(json_data)
-                        logging.info(f"✅ Sent {len(predictions)} records to WebSocket client")
+                        logging.info(f"📤 Sent to {websocket.client}")
                     else:
                         logging.warning(f"⚠ WebSocket {websocket.client} closed before sending data.")
                         clients.pop(websocket, None)
@@ -49,7 +54,9 @@ async def forward_data(request: Request):
 
         return {"message": "Data forwarded to WebSocket"}
     except Exception as e:
+        logging.error(f"❌ Error in forward_data: {e}")
         return {"error": f"Failed to forward data: {e}"}
+
 
 
 
